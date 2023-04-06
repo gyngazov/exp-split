@@ -1,6 +1,4 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 
 public class ExpenseSplitter {
@@ -8,6 +6,10 @@ public class ExpenseSplitter {
      * Имена массивом из заголовка инпута.
      */
     private String[] names;
+    /**
+     * Индекс по имени для вывода результатов.
+     */
+    private final Map<String, Integer> nameIndex;
     /**
      * Мапа долгов. Если сумма у имени > 0, то должны ему.
      */
@@ -20,18 +22,24 @@ public class ExpenseSplitter {
      * Отчет о долгах.
      */
     private final List<DebtPayed> debtsList;
+    /**
+     * Двумерный массив долгов для вывода результатов.
+     */
+    private String[][] debitorMatrix;
+    private static final String OUTPUT_FILE = "output_check.csv";
 
     public ExpenseSplitter() {
         nameDebt = new HashMap<>();
         personFinances = new TreeSet<>();
         debtsList = new ArrayList<>();
+        nameIndex = new HashMap<>();
     }
 
     public static void main(String[] args) throws IOException {
         ExpenseSplitter es = new ExpenseSplitter();
         es.readInput("input_check.csv");
         es.findEndebted();
-        System.out.println("Кто кому должен: " + es.getDebtsList());
+        es.writeDebts();
     }
 
     public List<DebtPayed> getDebtsList() {
@@ -48,6 +56,41 @@ public class ExpenseSplitter {
     }
 
     /**
+     * Долги на экран.
+     */
+    public void printDebts() {
+        for (int j = 0; j < names.length - 2; j++) {
+            System.out.print("," + names[j + 2].trim());
+        }
+        System.out.println("\n");
+        for (int i = 0; i < names.length - 2; i++) {
+            System.out.print(names[i + 2].trim());
+            for (int j = 0; j < names.length - 2; j++) {
+                System.out.print("," + debitorMatrix[i][j]);
+            }
+            System.out.println("\n");
+        }
+    }
+
+    /**
+     * Долги в файл.
+     */
+    public void writeDebts() throws IOException {
+        try(FileWriter wf = new FileWriter(OUTPUT_FILE)) {
+            for (int j = 0; j < names.length - 2; j++) {
+                wf.write("," + names[j + 2].trim());
+            }
+            wf.write("\n");
+            for (int i = 0; i < names.length - 2; i++) {
+                wf.write(names[i + 2].trim());
+                for (int j = 0; j < names.length - 2; j++) {
+                    wf.write("," + debitorMatrix[i][j]);
+                }
+                wf.write("\n");
+            }
+        }
+    }
+    /**
      * Собрать сет по мапе.
      */
     private void collectDebts() {
@@ -60,11 +103,20 @@ public class ExpenseSplitter {
      * Инит:
      * - списка имен
      * - нулями долги
+     * - мапы индекс-имя
+     * - матрицы долгов
      */
     private void setZeroDebts(String firstLine) {
         names = firstLine.split(",");
         for (int i = 2; i < names.length; i++) {
             nameDebt.put(names[i].trim(), 0.0);
+            nameIndex.put(names[i].trim(), i - 2);
+        }
+        debitorMatrix = new String[names.length - 2][names.length - 2];
+        for (int i = 0; i < names.length - 2; i++) {
+            for (int j = 0; j < names.length - 2; j++) {
+                debitorMatrix[i][j] = "0";
+            }
         }
     }
 
@@ -112,11 +164,17 @@ public class ExpenseSplitter {
             if (debt > 0) {
                 personFinances.add(new PersonFinance(max.name, debt));
                 debtsList.add(new DebtPayed(min.name, max.name, String.format(twoDigits, -min.payedAmount)));
+                debitorMatrix[nameIndex.get(min.name)][nameIndex.get(max.name)]
+                        = String.format(twoDigits, -min.payedAmount);
             } else if (debt < 0) {
                 personFinances.add(new PersonFinance(min.name, debt));
                 debtsList.add(new DebtPayed(min.name, max.name, String.format(twoDigits, max.payedAmount)));
+                debitorMatrix[nameIndex.get(min.name)][nameIndex.get(max.name)]
+                        = String.format(twoDigits, max.payedAmount);
             } else {
                 debtsList.add(new DebtPayed(min.name, max.name, String.format(twoDigits, max.payedAmount)));
+                debitorMatrix[nameIndex.get(min.name)][nameIndex.get(max.name)]
+                        = String.format(twoDigits, max.payedAmount);
             }
         }
     }
